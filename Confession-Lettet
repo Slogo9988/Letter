@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Confession — Interactive</title>
+<style>
+  :root{
+    --bg:#fff7f5;
+    --card:#fffdf8;
+    --accent:#ff7f7f;
+    --muted:#666;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    background:linear-gradient(180deg,#fffafb 0%,#f3ecec 100%);
+    font-family: Georgia, "Times New Roman", serif;
+    color:#222;
+    padding:28px;
+    overflow:hidden;
+  }
+
+  .wrap{ width:100%; max-width:920px; text-align:center; }
+
+  /* Intro heart */
+  .heart {
+    font-size:110px;
+    cursor:pointer;
+    display:inline-block;
+    transform-origin:center;
+    animation:heartBeat 1.4s ease-in-out infinite;
+    filter: drop-shadow(0 6px 18px rgba(255,0,0,0.18));
+  }
+  @keyframes heartBeat {
+    0%,100% { transform: scale(1) }
+    35% { transform: scale(1.18) }
+    70% { transform: scale(1) }
+  }
+  .heart.burst { animation: burst 0.55s forwards; }
+  @keyframes burst {
+    0% { transform: scale(1); opacity:1; filter: drop-shadow(0 6px 18px rgba(255,0,0,0.18)); }
+    60% { transform: scale(2.4); opacity:.8; filter: blur(2px); }
+    100% { transform: scale(0); opacity:0; }
+  }
+
+  /* Question box */
+  .question {
+    display:none;
+    margin-top:14px;
+    animation:fadeUp .45s ease both;
+  }
+  @keyframes fadeUp {
+    from { opacity:0; transform: translateY(18px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+
+  .btn {
+    --bg:#e9e9e9;
+    display:inline-block;
+    margin:10px;
+    padding:10px 18px;
+    border-radius:10px;
+    border:0;
+    background:var(--bg);
+    font-weight:700;
+    position:relative;
+    overflow:hidden;
+    cursor:pointer;
+    box-shadow:0 8px 20px rgba(0,0,0,0.06);
+  }
+  .btn:active{ transform: translateY(1px) }
+
+  /* Letter box (hidden until yes) */
+  .letterWrap{
+    display:none;
+    margin-top:20px;
+    display:flex;
+    justify-content:center;
+  }
+  .letter {
+    width:100%;
+    max-width:780px;
+    background:var(--card);
+    padding:32px 36px;
+    border-radius:12px;
+    box-shadow:0 18px 50px rgba(30,30,30,0.08);
+    text-align:left;
+    line-height:1.72;
+    white-space:pre-wrap;
+    border:3px solid rgba(200,120,120,0.07);
+    position:relative;
+    overflow:hidden;
+  }
+  .letter.fadeIn {
+    animation: fadeInCard .6s ease both;
+  }
+  @keyframes fadeInCard {
+    from { transform: translateY(18px); opacity: 0 }
+    to { transform: translateY(0); opacity: 1 }
+  }
+
+  /* caret */
+  .caret {
+    display:inline-block;
+    width:3px;
+    height:1.05em;
+    background:#333;
+    margin-left:6px;
+    vertical-align:bottom;
+    animation:blink .8s steps(1) infinite;
+  }
+  @keyframes blink { 50%{ opacity:0 } }
+
+  /* heartbeat effect after typing */
+  .letter.heartbeat {
+    animation: heartScale 1s ease-in-out 3;
+  }
+  @keyframes heartScale {
+    0%,100%{ transform: scale(1) }
+    30%{ transform: scale(1.03) }
+    60%{ transform: scale(1.07) }
+  }
+
+  /* heart outro: morph the letter into a circular heart & shrink */
+  .letter.heart-outro {
+    animation: letterToHeart 1.6s forwards cubic-bezier(.2,.8,.2,1);
+  }
+  @keyframes letterToHeart {
+    0% { border-radius:12px; transform: scale(1); background: var(--card); opacity:1 }
+    40% { transform: scale(1.2); border-radius:50%; background: pink; }
+    100% { transform: scale(0.05); opacity: 0; }
+  }
+
+  /* floating hearts */
+  .floating {
+    position:fixed;
+    pointer-events:none;
+    font-size:20px;
+    animation:flyUp 2s forwards;
+    opacity:1;
+    will-change: transform, opacity;
+  }
+  @keyframes flyUp {
+    to { transform: translateY(-220px) scale(.9); opacity:0 }
+  }
+
+  /* Prank area */
+  .prankWrap{ display:none; margin-top:18px; }
+  .prankText { font-size:1.2rem; margin-bottom:12px; display:inline-block; }
+  .explodeSpan {
+    display:inline-block;
+    will-change: transform, opacity;
+    animation: explodeAnim 900ms forwards cubic-bezier(.2,.9,.2,1);
+  }
+  @keyframes explodeAnim {
+    to { transform: translate(var(--x,0), var(--y,0)) rotate(var(--rot,0)); opacity: 0; }
+  }
+
+  /* Responsive */
+  @media (max-width:620px){
+    .heart{ font-size:84px }
+    .letter { padding:20px }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap" role="main" aria-live="polite">
+    <div id="introArea">
+      <div id="heart" class="heart" title="Click me">❤️</div>
+    </div>
+
+    <div id="question" class="question" aria-hidden="true">
+      <h3>Would you like to proceed?</h3>
+      <button class="btn" id="yesBtn">Yes</button>
+      <button class="btn" id="noBtn">No</button>
+    </div>
+
+    <div id="letterWrap" class="letterWrap" aria-hidden="true">
+      <article id="letter" class="letter" aria-label="Confession letter">
+        <div id="letterContent"></div><span id="caret" class="caret" aria-hidden="true"></span>
+      </article>
+    </div>
+
+    <div id="prankWrap" class="prankWrap" aria-hidden="true">
+      <div id="prankText" class="prankText">It's all a prank.</div>
+      <div><button class="btn" id="niceBtn">Nice prank</button></div>
+    </div>
+  </div>
+
+  <!-- Background music (instrumental file you must place locally) -->
+  <audio id="bg-music" loop>
+    <source src="iwannabeyours.mp3" type="audio/mpeg">
+  </audio>
+
+<script>
+  // Elements
+  const heart = document.getElementById('heart');
+  const question = document.getElementById('question');
+  const yesBtn = document.getElementById('yesBtn');
+  const noBtn = document.getElementById('noBtn');
+  const letterWrap = document.getElementById('letterWrap');
+  const letter = document.getElementById('letter');
+  const letterContent = document.getElementById('letterContent');
+  const caret = document.getElementById('caret');
+  const prankWrap = document.getElementById('prankWrap');
+  const prankText = document.getElementById('prankText');
+  const niceBtn = document.getElementById('niceBtn');
+  const music = document.getElementById('bg-music');
+
+  // exact main message you provided (single faithful copy)
+  const message = `Hey bru,
+
+I know this might come as a surprise, but I want to be completely honest with you right now. You’re my best friend, and because of that, I don’t want to hide how I truly feel anymore. I know that saying this could change everything between us, and honestly, that’s what I’m most afraid of—losing the friendship we’ve built. But at the same time, I’d regret it even more if I never told you the truth.
+
+Lai... I like you. And it’s not the kind of “like” that’s shallow or temporary. I like you for the way you make me feel safe, understood, and at peace. Even when I’m at my lowest or messiest, you still see me for who I am. You make me laugh without even trying, you correct me when I’m wrong without making me feel small, and you guide me in ways that make me better. That’s why I admire you so much—not just as my best friend, but as someone I truly care about from the bottom of my heart.
+
+I’ve been thinking about this for a long time. I know I’ve made mistakes along the way, maybe annoyed you, or hurt you without meaning to. For that, I’m sorry. The last thing I’d ever want is to cause you pain. You’re one of the brightest parts of my life, and losing that smile you bring me would break me.
+
+I’ve also noticed the changes between us. The distance. The way things don’t feel quite the same when we talk. And it hurts, bru. Because I look back at our memories—the laughter, the moments that felt endless—and I realize how much I treasure those times. That’s why I’m here, laying it all out honestly, not to pressure you, but because you deserve to know.
+
+I know you’re going through a lot right now. Maybe you’re tired, maybe you’re struggling, maybe you don’t even know what you want at the moment. And that’s okay. I don’t expect you to have an answer right away. You don’t owe me anything. Please don’t feel pressured or guilty. Take all the time you need, because the last thing I want is to add to your burden.
+
+If you’re not ready for a relationship right now, I’ll respect that completely. I’m willing to wait, because this isn’t just a passing feeling. After graduation, I’d love to court you properly—if you’ll allow me. But if your answer is no, I’ll accept that too. Because what matters most to me is you—your happiness, your healing, your smile.
+
+You’ve been one of the biggest motivations for me to change and grow. Even the little things you say push me to be better. And that’s why I want to be someone worthy of you—not perfect, but someone you can always rely on.
+
+I know I’ve taken a gamble with this confession. I know it might have put our friendship at risk, and that’s something I’ll always regret if it hurt you. But please believe me when I say this: I would never want to lose you completely. Even if we never end up as more than friends, I’ll always value and protect what we have. Because being your best friend has already been one of the greatest gifts in my life.
+
+So bru, don’t feel like you need to answer me right away. Take your time. Think it through. Whatever your decision is, I’ll accept it, and I’ll be here—whether as someone waiting or as the same best friend you’ve always had.
+
+Always,
+Reben`;
+
+  // simple ripple helper (reusable)
+  function addRipple(e){
+    const btn = e.currentTarget;
+    const rect = btn.getBoundingClientRect();
+    const r = document.createElement('span');
+    r.className = 'ripple';
+    const size = Math.max(rect.width, rect.height) * 1.2;
+    r.style.width = r.style.height = size + 'px';
+    r.style.left = (e.clientX - rect.left - size/2) + 'px';
+    r.style.top  = (e.clientY - rect.top - size/2) + 'px';
+    r.style.position = 'absolute';
+    r.style.borderRadius = '50%';
+    r.style.background = 'rgba(0,0,0,0.12)';
+    r.style.transform = 'scale(0)';
+    r.style.opacity = '1';
+    r.style.pointerEvents = 'none';
+    r.style.transition = 'transform 600ms ease, opacity 600ms ease';
+    btn.appendChild(r);
+    requestAnimationFrame(()=> {
+      r.style.transform = 'scale(2.5)';
+      r.style.opacity = '0';
+    });
+    setTimeout(()=> r.remove(), 650);
+  }
+
+  // Music fade in/out helpers
+  function fadeInMusic(){
+    try {
+      music.volume = 0;
+      const p = music.play();
+      if (p && p.catch) p.catch(()=>{}); // ignore rejected promise
+    } catch(e){}
+    let v = 0;
+    const t = setInterval(()=>{
+      v += 0.05;
+      music.volume = Math.min(1, v);
+      if (v >= 1) clearInterval(t);
+    }, 150);
+  }
+  function fadeOutMusic(){
+    let v = music.volume;
+    const t = setInterval(()=>{
+      v -= 0.06;
+      music.volume = Math.max(0, v);
+      if (v <= 0.01){ music.pause(); music.currentTime = 0; clearInterval(t); }
+    }, 120);
+  }
+
+  // Heart click -> show question & start music
+  heart.addEventListener('click', (e)=>{
+    heart.classList.add('burst');
+    // micro ripple on heart (fake)
+    setTimeout(()=>{
+      // hide heart and reveal question
+      document.getElementById('introArea').style.display = 'none';
+      question.style.display = 'block';
+      question.setAttribute('aria-hidden','false');
+      // start music (fade)
+      fadeInMusic();
+    }, 480);
+  });
+
+  // Yes -> show letter and start typing (conversational)
+  yesBtn.addEventListener('click', (e)=>{
+    addRipple(e);
+    question.style.display = 'none';
+    letterWrap.style.display = 'flex';
+    letter.classList.add('fadeIn');
+    letter.setAttribute('aria-hidden','false');
+    // begin typing after small delay
+    setTimeout(()=> startTyping(message, letterContent, ()=>{
+      // after typing completes: heartbeat + show Arigatoe button
+      letter.classList.add('heartbeat');
+      setTimeout(()=> {
+        // add Arigatoe button
+        const btn = document.createElement('button');
+        btn.textContent = 'Arigatoe';
+        btn.className = 'btn';
+        btn.style.marginTop = '18px';
+        btn.addEventListener('click', ()=>{
+          // spawn hearts, morph letter, fade music
+          spawnFloatingHearts();
+          fadeOutMusic();
+          letter.classList.remove('heartbeat');
+          letter.classList.add('heart-outro');
+          setTimeout(()=> { letterWrap.style.display = 'none'; }, 1500);
+        });
+        letter.appendChild(btn);
+      }, 700);
+    }), 250);
+  });
+
+  // No -> animate then show prank
+  noBtn.addEventListener('click', (e)=>{
+    addRipple(e);
+    question.classList.add('shake');
+    setTimeout(()=>{
+      question.style.display = 'none';
+      prankWrap.style.display = 'block';
+      prankWrap.setAttribute('aria-hidden','false');
+      // small fade in
+      prankWrap.style.opacity = 0;
+      prankWrap.animate([{opacity:0, transform:'translateY(10px)'},{opacity:1, transform:'translateY(0)'}], {duration:420, easing:'ease-out', fill:'forwards'});
+    }, 500);
+  });
+
+  // Nice prank -> explode
+  niceBtn.addEventListener('click', (e)=>{
+    addRipple(e);
+    explodePrank(prankText);
+  });
+
+  // conversational typewriter
+  function startTyping(text, outEl, onDone){
+    outEl.textContent = '';
+    caret.style.display = ''; // show caret
+    let i = 0;
+    const base = 28;
+    function step(){
+      if (i >= text.length){
+        caret.style.display = 'none';
+        if (typeof onDone === 'function') onDone();
+        return;
+      }
+      const ch = text.charAt(i);
+      if (ch === '\n'){
+        outEl.appendChild(document.createElement('br'));
+      } else {
+        outEl.appendChild(document.createTextNode(ch));
+      }
+      i++;
+
+      // Natural pacing rules
+      let delay = base + Math.random()*40; // base jitter
+      // If finishing an ellipsis
+      if (ch === '.' && text.slice(i-3, i) === '...') delay = 900 + Math.random()*200;
+      // sentence punctuation
+      else if (ch === '.' || ch === '!' || ch === '?') delay = 400 + Math.random()*350;
+      // comma shorter pause
+      else if (ch === ',') delay = 180 + Math.random()*160;
+      // line break
+      else if (ch === '\n') delay = 420 + Math.random()*260;
+      // occasional longer human pause at random (~5% chance)
+      else if (Math.random() < 0.05) delay += 220 + Math.random()*260;
+
+      setTimeout(step, delay);
+    }
+    step();
+  }
+
+  // spawn floating hearts on Arigatoe
+  function spawnFloatingHearts(){
+    const count = 10;
+    const box = letter.getBoundingClientRect();
+    for (let i=0;i<count;i++){
+      const h = document.createElement('div');
+      h.className='floating';
+      h.innerText = '❤️';
+      // position roughly over the letter area
+      const left = box.left + Math.random() * box.width;
+      const top = box.top + box.height - 12;
+      h.style.left = (left) + 'px';
+      h.style.top = (top) + 'px';
+      h.style.fontSize = (12 + Math.round(Math.random()*18)) + 'px';
+      h.style.opacity = '1';
+      document.body.appendChild(h);
+      h.style.animationDelay = (i*80)+'ms';
+      setTimeout(()=> { h.remove(); }, 2200 + i*90);
+    }
+  }
+
+  // explode prank text into spans and animate
+  function explodePrank(el){
+    const txt = el.textContent;
+    el.textContent = '';
+    const frag = document.createDocumentFragment();
+    for (let i=0;i<txt.length;i++){
+      const ch = txt[i];
+      const span = document.createElement('span');
+      span.textContent = ch;
+      span.className = 'explodeSpan';
+      // random vector
+      const x = Math.floor(Math.random()*600 - 300);
+      const y = Math.floor(Math.random()*300 - 150);
+      const r = Math.floor(Math.random()*720 - 360) + 'deg';
+      span.style.setProperty('--x', x+'px');
+      span.style.setProperty('--y', y+'px');
+      span.style.setProperty('--rot', r);
+      span.style.animationDelay = (Math.random()*220)+'ms';
+      frag.appendChild(span);
+    }
+    el.appendChild(frag);
+    // hide the prank area after animation
+    setTimeout(()=> { prankWrap.style.display = 'none'; }, 1400);
+  }
+
+  // Accessibility: allow Enter on heart
+  heart.tabIndex = 0;
+  heart.addEventListener('keydown', (e)=> {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); heart.click(); }
+  });
+
+</script>
+</body>
+</html>
